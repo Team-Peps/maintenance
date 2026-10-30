@@ -65,9 +65,11 @@ Même principe que le dépôt du front : pas de RBAC, le workflow utilise le kub
    base64 -w0 ~/.kube/config
    ```
 
-2. **Variables (optionnel)** : dans *Settings → Secrets and variables → Actions → Variables*, `K8S_NAMESPACE` et `FRONT_SERVICE` valent par défaut `peps-prod` et `peps-frontend` (le Service créé par le chart Helm du front).
+2. **Discord (optionnel)** : ajoute le secret `DISCORD_WEBHOOK_URL` (celui du front) dans l'environnement *prod*. Un message est publié à chaque `on` (avec l'heure de retour si elle est renseignée) et à chaque `off`. Sans secret, la notification est ignorée. Pour un appel depuis un autre workflow, transmets-le aussi dans `secrets:`.
 
-3. **Image** : le workflow **Image de la page** publie `ghcr.io/team-peps/maintenance:latest` à chaque modification de la page sur `main`. Le pod réutilise le secret de pull `ghcr-pull-secret` du front.
+3. **Variables (optionnel)** : dans *Settings → Secrets and variables → Actions → Variables*, `K8S_NAMESPACE` et `FRONT_SERVICE` valent par défaut `peps-prod` et `peps-frontend` (le Service créé par le chart Helm du front).
+
+4. **Image** : le workflow **Image de la page** publie `ghcr.io/team-peps/maintenance:latest` à chaque modification de la page sur `main`. Le pod réutilise le secret de pull `ghcr-pull-secret` du front.
 
 > Le runner GitHub doit pouvoir joindre l'API Kubernetes (port 6443). Si ce port est filtré, utilise un runner auto-hébergé dans le cluster (Actions Runner Controller) et remplace `runs-on: ubuntu-latest` par le label de ce runner.
 
@@ -83,6 +85,7 @@ jobs:
       action: "on"
     secrets:
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
   deploy:
     needs: maintenance-on
@@ -95,6 +98,7 @@ jobs:
       action: "off"
     secrets:
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 ```
 
 Si le dépôt `maintenance` est privé, autorise son accès aux autres dépôts de l'organisation : *Settings → Actions → General → Access*.

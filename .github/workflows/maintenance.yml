@@ -31,6 +31,8 @@ on:
     secrets:
       KUBE_CONFIG:
         required: true
+      DISCORD_WEBHOOK_URL:
+        required: false
 
 permissions:
   contents: read
@@ -90,6 +92,41 @@ jobs:
         env:
           ACTION: ${{ inputs.action }}
         run: bash scripts/maintenance.sh "$ACTION"
+
+      - name: Notification Discord
+        if: success() && (inputs.action == 'on' || inputs.action == 'off')
+        env:
+          ACTION: ${{ inputs.action }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_URL absent : notification ignorée."
+            exit 0
+          fi
+
+          if [ "$ACTION" = "on" ]; then
+            TITLE="🛠️ Maintenance en cours"
+            DESC="**teampeps.fr** est passé en maintenance."
+            COLOR=13200679
+            if [ -n "$RETURN_AT" ] && ts="$(date -d "$RETURN_AT" +%s 2>/dev/null)"; then
+              DESC="$DESC"$'\n'"**Retour prévu :** <t:$ts:F> (<t:$ts:R>)"
+            fi
+          else
+            TITLE="✅ Maintenance terminée"
+            DESC="**teampeps.fr** est de nouveau en ligne."
+            COLOR=3066993
+          fi
+
+          payload="$(jq -n \
+            --arg title "$TITLE" \
+            --arg desc "$DESC" \
+            --arg actor "$ACTOR" \
+            --argjson color "$COLOR" \
+            '{username: "Team Peps CI/CD", embeds: [{title: $title, description: ($desc + "\n**Auteur :** " + $actor), color: $color}]}')"
+
+          curl -sS --fail -H "Content-Type: application/json" -X POST -d "$payload" "$WEBHOOK" \
+            || echo "::warning::Notification Discord non envoyée."
 
       - name: Nettoyer
         if: always()
