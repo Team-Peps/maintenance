@@ -4,7 +4,7 @@
  */
 window.MAINTENANCE_CONFIG = {
   /** Version affichée à côté de « Patch notes » (laisser vide pour masquer). */
-  version: 'v2.0',
+  version: "peps_site_v1.0",
 
   /**
    * Heure de retour prévue, au format ISO 8601 avec fuseau.
@@ -13,13 +13,13 @@ window.MAINTENANCE_CONFIG = {
   returnAt: null,
 
   /** Adresse de contact affichée en pied de page (laisser vide pour masquer). */
-  contactEmail: '',
+  contactEmail: "",
 
   /** Liens affichés sous les patch notes (laisser vide pour masquer un lien). */
   links: {
-    discord: '',
-    x: '',
-    twitch: ''
+    discord: "https://discord.gg/T92qhMUyRV",
+    x: "",
+    twitch: "",
   },
 
   /**
@@ -27,14 +27,14 @@ window.MAINTENANCE_CONFIG = {
    * status : 'done' (OK), 'running' (en cours) ou 'pending' (en attente).
    */
   steps: [
-    { label: 'passage en mode maintenance', status: 'done' },
-    { label: 'sauvegarde de la base de données', status: 'done' },
-    { label: 'sauvegarde des fichiers', status: 'done' },
-    { label: 'build front (Angular)', status: 'done' },
-    { label: 'build API (Spring Boot)', status: 'done' },
-    { label: 'migration de la base de données', status: 'done' },
-    { label: 'mise en ligne de la nouvelle version', status: 'running' },
-    { label: 'tests de santé', status: 'pending' }
+    { label: "passage en mode maintenance", status: "done" },
+    { label: "sauvegarde de la base de données", status: "done" },
+    { label: "sauvegarde des fichiers", status: "done" },
+    { label: "build front", status: "done" },
+    { label: "build API", status: "done" },
+    { label: "migration de la base de données", status: "done" },
+    { label: "mise en ligne de la nouvelle version", status: "running" },
+    { label: "tests de santé", status: "pending" },
   ],
 
   /**
@@ -42,10 +42,14 @@ window.MAINTENANCE_CONFIG = {
    * type : 'new' (Nouveau), 'improvement' (Amélio) ou 'fix' (Fix).
    */
   notes: [
-    { type: 'new', text: '[À compléter] Nouveauté principale de la version' },
-    { type: 'new', text: '[À compléter] Autre nouveauté' },
-    { type: 'improvement', text: '[À compléter] Amélioration' },
-    { type: 'fix', text: '[À compléter] Correction de bug' }
+    { type: "new", text: "Ajout d'un easter egg" },
+    { type: "improvement", text: "Nerf du gain d'exp pour le BattlePEPS" },
+    {
+      type: "improvement",
+      text: "Ajout de 1000 pepscoins à l'utilisateur Féfé",
+    },
+    { type: "fix", text: "Amélioration de performance" },
+    { type: "fix", text: "Correction de bugs" },
   ],
 
   /**
@@ -57,6 +61,6 @@ window.MAINTENANCE_CONFIG = {
   healthCheck: {
     url: null,
     intervalSeconds: 30,
-    redirectTo: 'https://teampeps.fr'
-  }
+    redirectTo: "https://teampeps.fr",
+  },
 };

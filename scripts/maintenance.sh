@@ -11,16 +11,16 @@
 # annotation du Service, puis restauré au retour. L'Ingress n'est jamais modifié.
 #
 # Variables d'environnement :
-#   NAMESPACE      Namespace du site                 (défaut : teampeps)
-#   FRONT_SERVICE  Service exposé par l'Ingress      (défaut : teampeps-front)
+#   NAMESPACE      Namespace du site                 (défaut : peps-prod)
+#   FRONT_SERVICE  Service exposé par l'Ingress      (défaut : peps-frontend)
 #   RETURN_AT      Heure de retour ISO 8601, optionnelle (ex. 2026-10-30T21:00:00+01:00)
 #   CONFIG_FILE    Fichier de config de la page      (défaut : js/config.js)
 #   MANIFEST       Manifeste du pod de maintenance   (défaut : k8s/maintenance.yaml)
 
 set -euo pipefail
 
-NAMESPACE="${NAMESPACE:-teampeps}"
-FRONT_SERVICE="${FRONT_SERVICE:-teampeps-front}"
+NAMESPACE="${NAMESPACE:-peps-prod}"
+FRONT_SERVICE="${FRONT_SERVICE:-peps-frontend}"
 RETURN_AT="${RETURN_AT:-}"
 CONFIG_FILE="${CONFIG_FILE:-js/config.js}"
 MANIFEST="${MANIFEST:-k8s/maintenance.yaml}"

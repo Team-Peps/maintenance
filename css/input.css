@@ -4,14 +4,22 @@
 @source "../js";
 
 @theme {
-  --color-peps-yellow: #f2c832;
-  --color-peps-ink: #0d0e10;
-  --color-peps-panel: #131415;
-  --color-peps-term: #0a0a0b;
-  --color-peps-line: #26282c;
+  --color-peps-dark-900: #0b0b0c;
+  --color-peps-dark-800: #101010;
+  --color-peps-dark-700: #131415;
+  --color-peps-dark-600: #222426;
+  --color-peps-dark-500: #313437;
+  --color-peps-dark-400: #32373f;
+  --color-peps-dark-300: #424852;
+  --color-peps-dark-200: #f9ecea;
+
+  --color-peps-yellow: #fdf7bd;
+  --color-peps-gold: #eec932;
+  --color-peps-orange: #c96527;
+  --color-peps-brown: #a63a20;
+
   --color-peps-muted: #9a9da4;
   --color-peps-dim: #6f727a;
-  --color-peps-cream: #f6ecdc;
   --color-peps-ok: #4ade80;
   --color-peps-red: #ef4444;
 
@@ -33,9 +41,9 @@
   }
 }
 
-/* Fond pointillé jaune */
+/* Fond pointillé doré */
 @utility bg-dots {
-  background-image: radial-gradient(rgb(242 200 50 / 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgb(238 201 50 / 0.07) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 

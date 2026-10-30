@@ -57,47 +57,17 @@ L'Ingress n'est jamais modifié. Toutes les URL répondent `503` avec un en-têt
 
 ### Mise en place (une seule fois)
 
-1. **Droits sur le cluster** : un admin applique le compte de service limité au namespace du site.
+Même principe que le dépôt du front : pas de RBAC, le workflow utilise le kubeconfig stocké dans GitHub.
+
+1. **Secret GitHub** : dans *Settings → Environments → prod*, ajoute le secret `KUBE_CONFIG`, le kubeconfig **encodé en base64** (le même format que `peps-frontend`). Dans cet environnement, tu peux exiger une validation avant chaque bascule (*Required reviewers*).
 
    ```bash
-   kubectl -n teampeps apply -f k8s/rbac.yaml
+   base64 -w0 ~/.kube/config
    ```
 
-2. **Kubeconfig pour GitHub** : on génère un kubeconfig qui utilise le token de ce compte de service.
+2. **Variables (optionnel)** : dans *Settings → Secrets and variables → Actions → Variables*, `K8S_NAMESPACE` et `FRONT_SERVICE` valent par défaut `peps-prod` et `peps-frontend` (le Service créé par le chart Helm du front).
 
-   ```bash
-   NS=teampeps
-   SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
-   CA=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
-   TOKEN=$(kubectl -n $NS get secret github-maintenance-token -o jsonpath='{.data.token}' | base64 -d)
-
-   cat > kubeconfig-github.yaml <<KCFG
-   apiVersion: v1
-   kind: Config
-   clusters:
-     - name: teampeps
-       cluster:
-         server: $SERVER
-         certificate-authority-data: $CA
-   users:
-     - name: github-maintenance
-       user:
-         token: $TOKEN
-   contexts:
-     - name: github-maintenance
-       context:
-         cluster: teampeps
-         user: github-maintenance
-         namespace: $NS
-   current-context: github-maintenance
-   KCFG
-   ```
-
-3. **Secret GitHub** : dans *Settings → Environments → production*, ajoute le secret `KUBE_CONFIG` avec le contenu de `kubeconfig-github.yaml`, puis supprime ce fichier. Dans le même environnement, tu peux exiger une validation avant chaque bascule (*Required reviewers*).
-
-4. **Variables (optionnel)** : dans *Settings → Secrets and variables → Actions → Variables*, renseigne `K8S_NAMESPACE` et `FRONT_SERVICE` s'ils ne valent pas `teampeps` et `teampeps-front`. Si le Service porte un autre nom, adapte aussi `resourceNames` dans `k8s/rbac.yaml`.
-
-5. **Image** : le workflow **Image de la page** publie `ghcr.io/team-peps/maintenance:latest` à chaque modification de la page sur `main`. Si le package GHCR est privé, crée un secret de pull dans le cluster et décommente `imagePullSecrets` dans `k8s/maintenance.yaml`.
+3. **Image** : le workflow **Image de la page** publie `ghcr.io/team-peps/maintenance:latest` à chaque modification de la page sur `main`. Le pod réutilise le secret de pull `ghcr-pull-secret` du front.
 
 > Le runner GitHub doit pouvoir joindre l'API Kubernetes (port 6443). Si ce port est filtré, utilise un runner auto-hébergé dans le cluster (Actions Runner Controller) et remplace `runs-on: ubuntu-latest` par le label de ce runner.
 
@@ -129,12 +99,12 @@ jobs:
 
 Si le dépôt `maintenance` est privé, autorise son accès aux autres dépôts de l'organisation : *Settings → Actions → General → Access*.
 
-> Si ton déploiement réapplique le manifeste du Service du front, le sélecteur d'origine revient et le site repasse en ligne dès ce moment-là. Lance `off` ensuite pour nettoyer l'annotation.
+> Un `helm upgrade` du front réapplique le Service du chart (`app: peps-frontend`) : le sélecteur d'origine revient et le site repasse en ligne dès ce moment-là. Pratique pour finir une maintenance avec un déploiement, mais ne lance pas `on` avant un déploiement du front sans appeler `off` ensuite. L'annotation de sauvegarde est alors obsolète, et le prochain `on` l'écrase.
 
 ### En local
 
 ```bash
-NAMESPACE=teampeps FRONT_SERVICE=teampeps-front RETURN_AT=2026-10-30T21:00:00+01:00 \
+NAMESPACE=peps-prod FRONT_SERVICE=peps-frontend RETURN_AT=2026-10-30T21:00:00+01:00 \
   scripts/maintenance.sh on
 scripts/maintenance.sh status
 scripts/maintenance.sh off
@@ -150,7 +120,6 @@ js/config.js                       contenu de la maintenance (à modifier)
 js/main.js                         logique : terminal, notes, heure de retour, vérification
 nginx.conf, Dockerfile             image servie dans le cluster (503 + Retry-After)
 k8s/maintenance.yaml               pod de la page de maintenance
-k8s/rbac.yaml                      compte de service du workflow
 scripts/maintenance.sh             bascule on / off / status
 .github/workflows/maintenance.yml  workflow « Mode maintenance »
 .github/workflows/build-image.yml  publication de l'image sur GHCR

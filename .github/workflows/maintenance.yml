@@ -44,11 +44,11 @@ jobs:
   maintenance:
     name: Maintenance ${{ inputs.action }}
     runs-on: ubuntu-latest
-    environment: production
+    environment: prod
     timeout-minutes: 10
     env:
-      NAMESPACE: ${{ vars.K8S_NAMESPACE || 'teampeps' }}
-      FRONT_SERVICE: ${{ vars.FRONT_SERVICE || 'teampeps-front' }}
+      NAMESPACE: ${{ vars.K8S_NAMESPACE || 'peps-prod' }}
+      FRONT_SERVICE: ${{ vars.FRONT_SERVICE || 'peps-frontend' }}
       RETURN_AT: ${{ inputs.return_at }}
     steps:
       - name: Vérifier l'action
@@ -76,7 +76,7 @@ jobs:
             echo "Le secret KUBE_CONFIG est manquant."
             exit 1
           fi
-          printf '%s' "$KUBE_CONFIG" > "$RUNNER_TEMP/kubeconfig"
+          printf '%s' "$KUBE_CONFIG" | tr -d '\n' | base64 -d > "$RUNNER_TEMP/kubeconfig"
           chmod 600 "$RUNNER_TEMP/kubeconfig"
           echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
 

@@ -6,7 +6,8 @@ on:
     paths:
       - index.html
       - css/style.css
-      - js/main.js
+      - js/**
+      - img/**
       - nginx.conf
       - Dockerfile
       - .github/workflows/build-image.yml
