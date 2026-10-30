@@ -76,7 +76,13 @@ jobs:
             echo "Le secret KUBE_CONFIG est manquant."
             exit 1
           fi
-          printf '%s' "$KUBE_CONFIG" | tr -d '\n' | base64 -d > "$RUNNER_TEMP/kubeconfig"
+          # Accepte le kubeconfig en base64 (comme le front) ou en YAML brut
+          if decoded="$(printf '%s' "$KUBE_CONFIG" | tr -d '\n' | base64 -d 2>/dev/null)" \
+            && printf '%s' "$decoded" | grep -q '^apiVersion:'; then
+            printf '%s\n' "$decoded" > "$RUNNER_TEMP/kubeconfig"
+          else
+            printf '%s\n' "$KUBE_CONFIG" > "$RUNNER_TEMP/kubeconfig"
+          fi
           chmod 600 "$RUNNER_TEMP/kubeconfig"
           echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
 
