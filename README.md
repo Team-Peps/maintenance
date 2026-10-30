@@ -9,7 +9,7 @@ Elle présente :
 - l'heure de retour prévue, avec le temps restant ;
 - un bouton « Réessayer » et les liens vers les réseaux.
 
-La page fonctionne en HTML, CSS et JavaScript, sans framework. Le CSS est généré avec Tailwind CSS v4 et déjà compilé dans `css/style.css`. Le dossier se déploie tel quel, sans build.
+La page fonctionne en HTML, CSS et JavaScript, sans framework. Le CSS est généré avec Tailwind CSS v4 et déjà compilé dans `css/style.css`. Le dossier se déploie tel quel, sans build, ou via l'image Docker fournie.
 
 ## Préparer une maintenance
 
@@ -39,34 +39,119 @@ Si tu ajoutes des classes Tailwind dans `index.html` ou dans `js/`, relance `npm
 
 Les couleurs, polices et animations de la DA sont définies dans le bloc `@theme` de [`css/input.css`](css/input.css) : `bg-peps-yellow`, `font-display`, `animate-caret`, etc.
 
-## Mise en ligne
+## Activer la maintenance depuis GitHub
 
-Pour les moteurs de recherche, la page doit idéalement répondre avec le code **503** et un en-tête `Retry-After`. Exemple avec nginx :
+Le workflow **Mode maintenance** (onglet *Actions* → *Mode maintenance* → *Run workflow*) propose trois actions :
 
-```nginx
-location / {
-    return 503;
-}
+| Action | Effet |
+| --- | --- |
+| `on` | Met à jour la page avec `js/config.js` et l'heure de retour saisie, puis redirige le trafic vers la page de maintenance. |
+| `off` | Remet le site en ligne. |
+| `status` | Indique si le site est en maintenance. |
 
-error_page 503 @maintenance;
+### Fonctionnement
 
-location @maintenance {
-    root /usr/share/nginx/maintenance;
-    add_header Retry-After 3600 always;
-    try_files /index.html =503;
-}
+Le pod `maintenance` (nginx) tourne en permanence dans le namespace du site, sans recevoir de trafic. Pour activer la maintenance, `scripts/maintenance.sh` change le **sélecteur du Service du front**, qui pointe alors vers ce pod. Le sélecteur d'origine est sauvegardé dans l'annotation `teampeps.fr/original-selector`, puis restauré par `off`.
 
-location ~ ^/(css|js)/ {
-    root /usr/share/nginx/maintenance;
-}
+L'Ingress n'est jamais modifié. Toutes les URL répondent `503` avec un en-tête `Retry-After`, ce qui est le bon signal pour les moteurs de recherche.
+
+### Mise en place (une seule fois)
+
+1. **Droits sur le cluster** : un admin applique le compte de service limité au namespace du site.
+
+   ```bash
+   kubectl -n teampeps apply -f k8s/rbac.yaml
+   ```
+
+2. **Kubeconfig pour GitHub** : on génère un kubeconfig qui utilise le token de ce compte de service.
+
+   ```bash
+   NS=teampeps
+   SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+   CA=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+   TOKEN=$(kubectl -n $NS get secret github-maintenance-token -o jsonpath='{.data.token}' | base64 -d)
+
+   cat > kubeconfig-github.yaml <<KCFG
+   apiVersion: v1
+   kind: Config
+   clusters:
+     - name: teampeps
+       cluster:
+         server: $SERVER
+         certificate-authority-data: $CA
+   users:
+     - name: github-maintenance
+       user:
+         token: $TOKEN
+   contexts:
+     - name: github-maintenance
+       context:
+         cluster: teampeps
+         user: github-maintenance
+         namespace: $NS
+   current-context: github-maintenance
+   KCFG
+   ```
+
+3. **Secret GitHub** : dans *Settings → Environments → production*, ajoute le secret `KUBE_CONFIG` avec le contenu de `kubeconfig-github.yaml`, puis supprime ce fichier. Dans le même environnement, tu peux exiger une validation avant chaque bascule (*Required reviewers*).
+
+4. **Variables (optionnel)** : dans *Settings → Secrets and variables → Actions → Variables*, renseigne `K8S_NAMESPACE` et `FRONT_SERVICE` s'ils ne valent pas `teampeps` et `teampeps-front`. Si le Service porte un autre nom, adapte aussi `resourceNames` dans `k8s/rbac.yaml`.
+
+5. **Image** : le workflow **Image de la page** publie `ghcr.io/team-peps/maintenance:latest` à chaque modification de la page sur `main`. Si le package GHCR est privé, crée un secret de pull dans le cluster et décommente `imagePullSecrets` dans `k8s/maintenance.yaml`.
+
+> Le runner GitHub doit pouvoir joindre l'API Kubernetes (port 6443). Si ce port est filtré, utilise un runner auto-hébergé dans le cluster (Actions Runner Controller) et remplace `runs-on: ubuntu-latest` par le label de ce runner.
+
+### Depuis un autre workflow
+
+Le workflow est réutilisable, par exemple pour encadrer le déploiement du front :
+
+```yaml
+jobs:
+  maintenance-on:
+    uses: Team-Peps/maintenance/.github/workflows/maintenance.yml@main
+    with:
+      action: "on"
+    secrets:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+  deploy:
+    needs: maintenance-on
+    # ... déploiement, migrations, tests
+
+  maintenance-off:
+    needs: deploy
+    uses: Team-Peps/maintenance/.github/workflows/maintenance.yml@main
+    with:
+      action: "off"
+    secrets:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+```
+
+Si le dépôt `maintenance` est privé, autorise son accès aux autres dépôts de l'organisation : *Settings → Actions → General → Access*.
+
+> Si ton déploiement réapplique le manifeste du Service du front, le sélecteur d'origine revient et le site repasse en ligne dès ce moment-là. Lance `off` ensuite pour nettoyer l'annotation.
+
+### En local
+
+```bash
+NAMESPACE=teampeps FRONT_SERVICE=teampeps-front RETURN_AT=2026-10-30T21:00:00+01:00 \
+  scripts/maintenance.sh on
+scripts/maintenance.sh status
+scripts/maintenance.sh off
 ```
 
 ## Structure
 
 ```
-index.html        structure de la page
-css/input.css     source Tailwind v4 (thème Team Peps)
-css/style.css     CSS compilé, à commiter
-js/config.js      contenu de la maintenance (à modifier)
-js/main.js        logique : terminal, notes, heure de retour, vérification
+index.html                         structure de la page
+css/input.css                      source Tailwind v4 (thème Team Peps)
+css/style.css                      CSS compilé, à commiter
+js/config.js                       contenu de la maintenance (à modifier)
+js/main.js                         logique : terminal, notes, heure de retour, vérification
+nginx.conf, Dockerfile             image servie dans le cluster (503 + Retry-After)
+k8s/maintenance.yaml               pod de la page de maintenance
+k8s/rbac.yaml                      compte de service du workflow
+scripts/maintenance.sh             bascule on / off / status
+.github/workflows/maintenance.yml  workflow « Mode maintenance »
+.github/workflows/build-image.yml  publication de l'image sur GHCR
 ```

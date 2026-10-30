@@ -1,0 +1,9 @@
+node_modules
+.git
+.github
+k8s
+scripts
+css/input.css
+package.json
+package-lock.json
+README.md

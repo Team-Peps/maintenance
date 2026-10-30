@@ -1,0 +1,57 @@
+# Pod de la page de maintenance.
+# Il tourne en permanence sans recevoir de trafic : le mode maintenance
+# consiste à faire pointer le Service du front vers ce pod (label app: maintenance).
+#
+# La ConfigMap « maintenance-config » (js/config.js) est créée et mise à jour
+# par scripts/maintenance.sh à chaque activation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maintenance
+  labels:
+    app: maintenance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maintenance
+  template:
+    metadata:
+      labels:
+        app: maintenance
+    spec:
+      # Décommenter si l'image GHCR est privée
+      # imagePullSecrets:
+      #   - name: ghcr-pull
+      containers:
+        - name: nginx
+          image: ghcr.io/team-peps/maintenance:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /usr/share/nginx/html/js/config.js
+              subPath: config.js
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: maintenance-config

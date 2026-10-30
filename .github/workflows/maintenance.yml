@@ -1,0 +1,90 @@
+name: Mode maintenance
+
+run-name: "Maintenance : ${{ inputs.action }}"
+
+on:
+  # Bouton « Run workflow » dans l'onglet Actions
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action"
+        type: choice
+        options:
+          - "on"
+          - "off"
+          - status
+        default: status
+      return_at:
+        description: "Heure de retour (optionnel, ex. 2026-10-30T21:00:00+01:00)"
+        type: string
+        required: false
+
+  # Appel depuis un autre workflow (ex. le déploiement du front)
+  workflow_call:
+    inputs:
+      action:
+        type: string
+        required: true
+      return_at:
+        type: string
+        required: false
+    secrets:
+      KUBE_CONFIG:
+        required: true
+
+permissions:
+  contents: read
+
+# Une seule bascule à la fois
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    name: Maintenance ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    env:
+      NAMESPACE: ${{ vars.K8S_NAMESPACE || 'teampeps' }}
+      FRONT_SERVICE: ${{ vars.FRONT_SERVICE || 'teampeps-front' }}
+      RETURN_AT: ${{ inputs.return_at }}
+    steps:
+      - name: Vérifier l'action
+        env:
+          ACTION: ${{ inputs.action }}
+        run: |
+          case "$ACTION" in
+            on|off|status) ;;
+            *) echo "Action inconnue : $ACTION (on, off ou status)"; exit 1 ;;
+          esac
+
+      - name: Récupérer le dépôt de la page
+        uses: actions/checkout@v4
+        with:
+          repository: Team-Peps/maintenance
+
+      - name: Installer kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configurer l'accès au cluster
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          if [ -z "$KUBE_CONFIG" ]; then
+            echo "Le secret KUBE_CONFIG est manquant."
+            exit 1
+          fi
+          printf '%s' "$KUBE_CONFIG" > "$RUNNER_TEMP/kubeconfig"
+          chmod 600 "$RUNNER_TEMP/kubeconfig"
+          echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+
+      - name: Maintenance ${{ inputs.action }}
+        env:
+          ACTION: ${{ inputs.action }}
+        run: bash scripts/maintenance.sh "$ACTION"
+
+      - name: Nettoyer
+        if: always()
+        run: rm -f "$RUNNER_TEMP/kubeconfig"
